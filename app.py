@@ -1,6 +1,6 @@
-
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_file
 import yt_dlp
+import os
 
 app = Flask(__name__)
 
@@ -9,32 +9,19 @@ def index():
     output = None
     if request.method == 'POST':
         url = request.form['url']
-        format = request.form['format']
-        ydl_opts = {}
-
-        if format == 'mp3':
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }]
-            }
-        elif format == 'mp4_360':
-            ydl_opts = {'format': '18'}
-        elif format == 'mp4_480':
-            ydl_opts = {'format': '135+140'}
-        elif format == 'mp4_720':
-            ydl_opts = {'format': '22'}
-
+        quality = request.form.get('quality', 'best')
         try:
+            ydl_opts = {
+                'format': quality,
+                'outtmpl': 'downloaded.%(ext)s',
+            }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            output = "✅ Download complete. Check server files."
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+            return send_file(filename, as_attachment=True)
         except Exception as e:
-            output = "❌ Failed to download. " + str(e)
+            output = f"Error: {str(e)}"
     return render_template('index.html', output=output)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    app.run(debug=True)
